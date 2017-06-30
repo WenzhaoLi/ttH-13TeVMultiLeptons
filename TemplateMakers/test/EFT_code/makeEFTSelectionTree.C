@@ -44,8 +44,15 @@ void run_it(TString sample_name, vector<TString> bin_names, TString output_file_
     cout << "first entry: " << first_entry << endl;
     cout << "last entry: " << last_entry << endl;
 
-    vector<ttH::GenParticle>* pruned_genParticles_intree = 0;
+    vector<ttH::GenParticle> *pruned_genParticles_intree = 0;
     vector<ttH::GenParticle> *genJets_intree = 0;
+
+    vector<ttH::Electron> *tight_electrons_intree = 0;
+    vector<ttH::Muon>     *tight_muons_intree = 0;
+    vector<ttH::Electron> *preselected_electrons_intree = 0;
+    vector<ttH::Muon>     *preselected_muons_intree = 0;
+    vector<ttH::Jet>      *preselected_jets_intree = 0;
+
     double mcwgt_intree = -999.;
 
 
@@ -53,15 +60,20 @@ void run_it(TString sample_name, vector<TString> bin_names, TString output_file_
     chain->SetBranchAddress("pruned_genParticles",  &pruned_genParticles_intree);
     chain->SetBranchAddress("genJets", &genJets_intree);
 
+    chain->SetBranchAddress("tight_electrons",       &tight_electrons_intree);
+    chain->SetBranchAddress("tight_muons",           &tight_muons_intree);
+    chain->SetBranchAddress("preselected_electrons", &preselected_electrons_intree);
+    chain->SetBranchAddress("preselected_muons",     &preselected_muons_intree);
+    chain->SetBranchAddress("preselected_jets",      &preselected_jets_intree);
+
     Int_t cachesize = 250000000;   //500 MBytes
     //  Int_t cachesize = 1024000000;   //1 GBytes
     chain->SetCacheSize(cachesize);
 
-
     TH1D* inv_W_mass_hist = new TH1D("W Mass Distribution","W Mass Distribution",150,-1,100);
-    TH1D* WZ_njets_hist = new TH1D("N Jet Distribution","N Jet Distribution",16,-1,15);
-    TH1D* ZZ_njets_hist = new TH1D("N Jet Distribution","N Jet Distribution",16,-1,15);
-    TH1D* WW_njets_hist = new TH1D("N Jet Distribution","N Jet Distribution",16,-1,15);
+    TH1D* WZ_njets_hist = new TH1D("N Jet Distribution","N Jet Distribution",16,-0.5,15.5);
+    TH1D* ZZ_njets_hist = new TH1D("N Jet Distribution","N Jet Distribution",16,-0.5,15.5);
+    TH1D* WW_njets_hist = new TH1D("N Jet Distribution","N Jet Distribution",16,-0.5,15.5);
 
     inv_W_mass_hist->GetXaxis()->SetTitle("Mass (GeV)");
     inv_W_mass_hist->GetYaxis()->SetTitle("Counts");
@@ -80,30 +92,10 @@ void run_it(TString sample_name, vector<TString> bin_names, TString output_file_
     double jet_pt_cut = 25;
     double jet_eta_cut = 2.8;
 
-    //last_entry = 5000;
+    //last_entry = 5;
     for (int i = first_entry; i <= last_entry; i++) {
-        //if (i != 10) {
-        //    continue;
-        //}
-
         printProgress(i,last_entry);
         chain->GetEntry(i);
-
-        //cout << "Getting BJets:" << endl;
-
-        //vector<ttH::GenParticle> b_jets = applyPtCut(*genJets_intree,jet_pt_cut);
-        //double total_jets = b_jets.size();
-        //for (auto &gen_jet: b_jets) {
-        //    readParticleInfo(gen_jet,-999,0);
-        //}
-
-
-        //b_jets = getBJets(*pruned_genParticles_intree,b_jets);
-
-        //cout << "\tBJets: " << b_jets.size() << endl;
-        //cout << "\tTotal Jets: " << total_jets << endl;
-
-        //continue;
 
         // Sample specific checks
         if (sample_name == "ttW") {
@@ -113,16 +105,32 @@ void run_it(TString sample_name, vector<TString> bin_names, TString output_file_
         } else if (sample_name == "WZ_to3lnu") {
             // Plot the N jet distributions
             double njets = getNJets(*genJets_intree,jet_pt_cut,jet_eta_cut);
-            WZ_njets_hist->Fill(njets);
+            WZ_njets_hist->Fill(njets,1);
         } else if (sample_name == "ZZ_to4l") {
             // Plot the N jet distributions
             double njets = getNJets(*genJets_intree,jet_pt_cut,jet_eta_cut);
-            ZZ_njets_hist->Fill(njets);
+            ZZ_njets_hist->Fill(njets,1);
         } else if (sample_name == "WW_2l2nu") {
             // Plot the N jet distributions
             double njets = getNJets(*genJets_intree,jet_pt_cut,jet_eta_cut);
-            WW_njets_hist->Fill(njets);
+            WW_njets_hist->Fill(njets,1);
         }
+
+        //vector<ttH::GenParticle> input_leptons = getGenLeptons(*pruned_genParticles_intree);
+        //vector<ttH::Lepton> input_leptons = getRecoLeptons(*tight_electrons_intree,*tight_muons_intree);
+        vector<ttH::Lepton> input_leptons = getRecoLeptons(*preselected_electrons_intree,*preselected_muons_intree);
+
+        //vector<ttH::GenParticle> input_jets = *genJets_intree;
+        vector<ttH::Jet> input_jets = *preselected_jets_intree;
+
+
+        double lep_pt_veto = 10.0
+        int lep_req = 2;
+        int jet_req = 6;
+        int b_jet_req = 1;
+        int sign = 0;                   //NOTE: SS+ --> +1, SS- --> -1, OS --> 0
+        bool req_exact_lep = true;
+        bool req_exact_jet = true;
 
         // Fill acceptance tables for each bin_name
         for (auto &bin_name: bin_names) {
@@ -130,250 +138,99 @@ void run_it(TString sample_name, vector<TString> bin_names, TString output_file_
                 double lep_pt_cut = cutflow_point;
                 bool passes = false;
                 if (bin_name == "2los_6jets") {
-                    passes = pass_2los_6jets(
-                        *pruned_genParticles_intree,
-                        *genJets_intree,
-                        lep_pt_cut,
-                        lep_eta_cut,
-                        jet_pt_cut,
-                        jet_eta_cut
-                    );
+                    lep_req = 2;
+                    jet_req = 6;
+                    sign = 0;
                 } else if (bin_name == "2lss_p_6jets") {
-                    passes = pass_2lss_p_6jets(
-                        *pruned_genParticles_intree,
-                        *genJets_intree,
-                        lep_pt_cut,
-                        lep_eta_cut,
-                        jet_pt_cut,
-                        jet_eta_cut
-                    );
+                    lep_req = 2;
+                    jet_req = 6;
+                    sign = 1;
                 } else if (bin_name == "2lss_m_6jets") {
-                    passes = pass_2lss_m_6jets(
-                        *pruned_genParticles_intree,
-                        *genJets_intree,
-                        lep_pt_cut,
-                        lep_eta_cut,
-                        jet_pt_cut,
-                        jet_eta_cut
-                    );
+                    lep_req = 2;
+                    jet_req = 6;
+                    sign = -1;
                 } else if (bin_name == "3l_ppm_4jets") {
-                    passes = pass_3l_ppm_4jets(
-                        *pruned_genParticles_intree,
-                        *genJets_intree,
-                        lep_pt_cut,
-                        lep_eta_cut,
-                        jet_pt_cut,
-                        jet_eta_cut
-                    );
+                    lep_req = 3;
+                    jet_req = 4;
+                    sign = 1;
                 } else if (bin_name == "3l_mmp_4jets") {
-                    passes = pass_3l_mmp_4jets(
-                        *pruned_genParticles_intree,
-                        *genJets_intree,
-                        lep_pt_cut,
-                        lep_eta_cut,
-                        jet_pt_cut,
-                        jet_eta_cut
-                    );
+                    lep_req = 3;
+                    jet_req = 4;
+                    sign = -1;
                 } else if (bin_name == "4l_2jets") {
-                    passes = pass_4l_2jets(
-                        *pruned_genParticles_intree,
-                        *genJets_intree,
-                        lep_pt_cut,
-                        lep_eta_cut,
-                        jet_pt_cut,
-                        jet_eta_cut
-                    );
+                    lep_req = 4;
+                    jet_req = 2;
+                    sign = 0;
                 } else if (bin_name == "full_WW_2l2nu") {
-                    int lep_req = 0;
-                    int jet_req = 0;
-                    int b_jet_req = 0;
-                    bool req_exact_lep = true;
-                    bool req_exact_jet = true;
-                    passes = pass_selection(
-                        *pruned_genParticles_intree,
-                        *genJets_intree,
-                        lep_pt_cut,
-                        lep_eta_cut,
-                        jet_pt_cut,
-                        jet_eta_cut,
-                        lep_req,
-                        jet_req,
-                        b_jet_req,
-                        req_exact_lep,
-                        req_exact_jet
-                    );
+                    lep_req = 0;
+                    jet_req = 0;
+                    sign = 0;
+                    req_exact_lep = false;
+                    req_exact_jet = false;
+                    b_jet_req = 0;
                 } else if (bin_name == "1l_0jets_0bjets_WW_2l2nu") {
-                    int lep_req = 1;
-                    int jet_req = 0;
-                    int b_jet_req = 0;
-                    bool req_exact_lep = true;
-                    bool req_exact_jet = true;
-                    passes = pass_selection(
-                        *pruned_genParticles_intree,
-                        *genJets_intree,
-                        lep_pt_cut,
-                        lep_eta_cut,
-                        jet_pt_cut,
-                        jet_eta_cut,
-                        lep_req,
-                        jet_req,
-                        b_jet_req,
-                        req_exact_lep,
-                        req_exact_jet
-                    );
+                    lep_req = 1;
+                    jet_req = 0;
+                    sign = 0;
+                    b_jet_req = 0;
                 } else if (bin_name == "2l_0jets_0bjets_WW_2l2nu") {
-                    int lep_req = 2;
-                    int jet_req = 0;
-                    int b_jet_req = 0;
-                    bool req_exact_lep = true;
-                    bool req_exact_jet = true;
-                    passes = pass_selection(
-                        *pruned_genParticles_intree,
-                        *genJets_intree,
-                        lep_pt_cut,
-                        lep_eta_cut,
-                        jet_pt_cut,
-                        jet_eta_cut,
-                        lep_req,
-                        jet_req,
-                        b_jet_req,
-                        req_exact_lep,
-                        req_exact_jet
-                    );
+                    lep_req = 2;
+                    jet_req = 0;
+                    sign = 0;
+                    b_jet_req = 0;
                 } else if (bin_name == "2l_1jets_0bjets_WW_2l2nu") {
-                    int lep_req = 2;
-                    int jet_req = 1;
-                    int b_jet_req = 0;
-                    bool req_exact_lep = true;
-                    bool req_exact_jet = true;
-                    passes = pass_selection(
-                        *pruned_genParticles_intree,
-                        *genJets_intree,
-                        lep_pt_cut,
-                        lep_eta_cut,
-                        jet_pt_cut,
-                        jet_eta_cut,
-                        lep_req,
-                        jet_req,
-                        b_jet_req,
-                        req_exact_lep,
-                        req_exact_jet
-                    );
+                    lep_req = 2;
+                    jet_req = 1;
+                    sign = 0;
+                    b_jet_req = 0;
                 } else if (bin_name == "2l_2jets_0bjets_WW_2l2nu") {
-                    int lep_req = 2;
-                    int jet_req = 2;
-                    int b_jet_req = 0;
-                    bool req_exact_lep = true;
-                    bool req_exact_jet = true;
-                    passes = pass_selection(
-                        *pruned_genParticles_intree,
-                        *genJets_intree,
-                        lep_pt_cut,
-                        lep_eta_cut,
-                        jet_pt_cut,
-                        jet_eta_cut,
-                        lep_req,
-                        jet_req,
-                        b_jet_req,
-                        req_exact_lep,
-                        req_exact_jet
-                    );
+                    lep_req = 2;
+                    jet_req = 2;
+                    sign = 0;
+                    b_jet_req = 0;
                 } else if (bin_name == "2l_3jets_0bjets_WW_2l2nu") {
-                    int lep_req = 2;
-                    int jet_req = 3;
-                    int b_jet_req = 0;
-                    bool req_exact_lep = true;
-                    bool req_exact_jet = true;
-                    passes = pass_selection(
-                        *pruned_genParticles_intree,
-                        *genJets_intree,
-                        lep_pt_cut,
-                        lep_eta_cut,
-                        jet_pt_cut,
-                        jet_eta_cut,
-                        lep_req,
-                        jet_req,
-                        b_jet_req,
-                        req_exact_lep,
-                        req_exact_jet
-                    );
+                    lep_req = 2;
+                    jet_req = 3;
+                    sign = 0;
+                    b_jet_req = 0;
                 } else if (bin_name == "2l_4jets_0bjets_WW_2l2nu") {
-                    int lep_req = 2;
-                    int jet_req = 4;
-                    int b_jet_req = 0;
-                    bool req_exact_lep = true;
-                    bool req_exact_jet = true;
-                    passes = pass_selection(
-                        *pruned_genParticles_intree,
-                        *genJets_intree,
-                        lep_pt_cut,
-                        lep_eta_cut,
-                        jet_pt_cut,
-                        jet_eta_cut,
-                        lep_req,
-                        jet_req,
-                        b_jet_req,
-                        req_exact_lep,
-                        req_exact_jet
-                    );
+                    lep_req = 2;
+                    jet_req = 4;
+                    sign = 0;
+                    b_jet_req = 0;
                 } else if (bin_name == "2l_5jets_0bjets_WW_2l2nu") {
-                    int lep_req = 2;
-                    int jet_req = 5;
-                    int b_jet_req = 0;
-                    bool req_exact_lep = true;
-                    bool req_exact_jet = true;
-                    passes = pass_selection(
-                        *pruned_genParticles_intree,
-                        *genJets_intree,
-                        lep_pt_cut,
-                        lep_eta_cut,
-                        jet_pt_cut,
-                        jet_eta_cut,
-                        lep_req,
-                        jet_req,
-                        b_jet_req,
-                        req_exact_lep,
-                        req_exact_jet
-                    );
+                    lep_req = 2;
+                    jet_req = 5;
+                    sign = 0;
+                    b_jet_req = 0;
                 } else if (bin_name == "2l_6jets_0bjets_WW_2l2nu") {
-                    int lep_req = 2;
-                    int jet_req = 6;
-                    int b_jet_req = 0;
-                    bool req_exact_lep = true;
-                    bool req_exact_jet = true;
-                    passes = pass_selection(
-                        *pruned_genParticles_intree,
-                        *genJets_intree,
-                        lep_pt_cut,
-                        lep_eta_cut,
-                        jet_pt_cut,
-                        jet_eta_cut,
-                        lep_req,
-                        jet_req,
-                        b_jet_req,
-                        req_exact_lep,
-                        req_exact_jet
-                    );
+                    lep_req = 2;
+                    jet_req = 6;
+                    sign = 0;
+                    b_jet_req = 0;
                 } else if (bin_name == "2l_6jets_1bjets_WW_2l2nu") {
-                    int lep_req = 2;
-                    int jet_req = 6;
-                    int b_jet_req = 1;
-                    bool req_exact_lep = true;
-                    bool req_exact_jet = true;
-                    passes = pass_selection(
-                        *pruned_genParticles_intree,
-                        *genJets_intree,
-                        lep_pt_cut,
-                        lep_eta_cut,
-                        jet_pt_cut,
-                        jet_eta_cut,
-                        lep_req,
-                        jet_req,
-                        b_jet_req,
-                        req_exact_lep,
-                        req_exact_jet
-                    );
+                    lep_req = 2;
+                    jet_req = 6;
+                    sign = 0;
+                    b_jet_req = 1;
                 }
+
+                passes = pass_selection(
+                    input_leptons,
+                    input_jets,
+                    *pruned_genParticles_intree,
+                    lep_pt_cut,
+                    lep_eta_cut,
+                    jet_pt_cut,
+                    jet_eta_cut,
+                    lep_pt_veto,
+                    sign,
+                    lep_req,
+                    jet_req,
+                    b_jet_req,
+                    req_exact_lep,
+                    req_exact_jet
+                );
 
                 if (passes) {
                     cutflow_counts[bin_name][cutflow_point] += 1*mcwgt_intree;
@@ -393,26 +250,26 @@ void run_it(TString sample_name, vector<TString> bin_names, TString output_file_
     //    out_f->Close();
     //}
 
-    if (sample_name == "WZ_to3lnu") {
-        TString output_root_file = "WZ_Njets_dist.root";
-        cout << "Output File: " << public_path + output_root_file << endl;
-        TFile *out_f = new TFile(public_path + output_root_file,"RECREATE");
-        WZ_njets_hist->Write();
-        out_f->Close();
-    } else if (sample_name == "ZZ_to4l") {
-        TString output_root_file = "ZZ_Njets_dist.root";
-        cout << "Output File: " << public_path + output_root_file << endl;
-        TFile *out_f = new TFile(public_path + output_root_file,"RECREATE");
-        WZ_njets_hist->Write();
-        out_f->Close();
-    } else if (sample_name == "WW_2l2nu") {
-        TString output_root_file = "WW_Njets_dist.root";
-        cout << "Output File: " << public_path + output_root_file << endl;
-        TFile *out_f = new TFile(public_path + output_root_file,"RECREATE");
-        WZ_njets_hist->Write();
-        out_f->Close();
-    }
-    
+    //if (sample_name == "WZ_to3lnu") {
+    //    TString output_root_file = "WZ_Njets_dist.root";
+    //    cout << "Output File: " << public_path + output_root_file << endl;
+    //    TFile *out_f = new TFile(public_path + output_root_file,"RECREATE");
+    //    WZ_njets_hist->Write();
+    //    out_f->Close();
+    //} else if (sample_name == "ZZ_to4l") {
+    //    TString output_root_file = "ZZ_Njets_dist.root";
+    //    cout << "Output File: " << public_path + output_root_file << endl;
+    //    TFile *out_f = new TFile(public_path + output_root_file,"RECREATE");
+    //    ZZ_njets_hist->Write();
+    //    out_f->Close();
+    //} else if (sample_name == "WW_2l2nu") {
+    //    TString output_root_file = "WW_Njets_dist.root";
+    //    cout << "Output File: " << public_path + output_root_file << endl;
+    //    TFile *out_f = new TFile(public_path + output_root_file,"RECREATE");
+    //    WW_njets_hist->Write();
+    //    out_f->Close();
+    //}
+
     cout << "Saving file... " << output_file_name << endl;
     std::ofstream ofile(output_file_name);
     ofile << "Total: " << total_count << endl;
@@ -443,19 +300,19 @@ void makeEFTSelectionTree(TString sample_name="ttW",int job_no=-1) {
     TString output_file_name = output_dir + sample_name + "_acceptance_table.txt";
 
     //vector<TString> bin_names {};
-    //vector<TString> bin_names {"2los_6jets","2lss_p_6jets","2lss_m_6jets","3l_ppm_4jets","3l_mmp_4jets","4l_2jets"};
-    vector<TString> bin_names {
-        "full_WW_2l2nu",
-        "1l_0jets_0bjets_WW_2l2nu",
-        "2l_0jets_0bjets_WW_2l2nu",
-        "2l_1jets_0bjets_WW_2l2nu",
-        "2l_2jets_0bjets_WW_2l2nu",
-        "2l_3jets_0bjets_WW_2l2nu",
-        "2l_4jets_0bjets_WW_2l2nu",
-        "2l_5jets_0bjets_WW_2l2nu",
-        "2l_6jets_0bjets_WW_2l2nu",
-        "2l_6jets_1bjets_WW_2l2nu"
-    };
+    vector<TString> bin_names {"2los_6jets","2lss_p_6jets","2lss_m_6jets","3l_ppm_4jets","3l_mmp_4jets","4l_2jets"};
+    //vector<TString> bin_names {
+    //    "full_WW_2l2nu",
+    //    "1l_0jets_0bjets_WW_2l2nu",
+    //    "2l_0jets_0bjets_WW_2l2nu",
+    //    "2l_1jets_0bjets_WW_2l2nu",
+    //    "2l_2jets_0bjets_WW_2l2nu",
+    //    "2l_3jets_0bjets_WW_2l2nu",
+    //    "2l_4jets_0bjets_WW_2l2nu",
+    //    "2l_5jets_0bjets_WW_2l2nu",
+    //    "2l_6jets_0bjets_WW_2l2nu",
+    //    "2l_6jets_1bjets_WW_2l2nu"
+    //};
 
     run_it(sample_name,bin_names,output_file_name,job_no);
 }
