@@ -27,7 +27,6 @@ template <typename inObj> TLorentzVector setTlv(const inObj inputObj ) {
 template <typename inObj1, typename inObj2> double getDeltaR(const inObj1 obj1, const inObj2 obj2) {
     TLorentzVector obj1_tlv = setTlv(obj1);
     TLorentzVector obj2_tlv = setTlv(obj2);
-    //cout << "Pt result: " << obj1_tlv.Pt()*obj2_tlv.Pt() << endl;
     if (obj1_tlv.Pt()*obj2_tlv.Pt() <= 1e-10) {
         return -1.;
     }
@@ -91,47 +90,6 @@ template <typename inObj> vector<inObj> applyEtaCut(vector<inObj> particles, dou
     }
     return selected_particles;
 }
-
-//vector<ttH::GenParticle> applyPtCut(vector<ttH::GenParticle> gen_particles, double pt_cut) {
-//    vector<ttH::GenParticle> selected_particles;
-//    for (auto &gen_particle: gen_particles) {
-//        if (gen_particle.obj.Pt() < pt_cut) {
-//            continue;
-//        }
-//        selected_particles.push_back(gen_particle);
-//    }
-//    return selected_particles;
-//}
-
-//vector<ttH::GenParticle> applyEtaCut(vector<ttH::GenParticle> gen_particles, double eta_cut) {
-//    vector<ttH::GenParticle> selected_particles;
-//    for (auto &gen_particle: gen_particles) {
-//        if (fabs(gen_particle.obj.Eta()) > eta_cut) {
-//            continue;
-//        }
-//        selected_particles.push_back(gen_particle);
-//    }
-//    return selected_particles;
-//}
-
-//vector<ttH::GenParticle> applyPtVeto(vector<ttH::GenParticle> gen_particles, uint veto_index, double veto_cut) {
-//    if (veto_index >= gen_particles.size()) {
-//        // Selected veto_index out of range!
-//        return gen_particles;
-//    }
-//    vector<ttH::GenParticle> selected_particles;
-//    for (uint i = 0; i < gen_particles.size(); i++) {
-//        ttH::GenParticle gen_particle = gen_particles.at(i);
-//        if (i == veto_index) {
-//            if (gen_particle.obj.Pt() > veto_cut) {
-//                // Veto particles that are above the veto_cut
-//                continue;
-//            }
-//        }
-//        selected_particles.push_back(gen_particle);
-//    }
-//    return selected_particles;
-//}
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 vector<ttH::GenParticle> getPromptParticles(vector<ttH::GenParticle> gen_particles) {
@@ -201,63 +159,6 @@ TString getParticleName(int pdg_id) {
     }
 }
 
-/*
-template <typename inObj> TString getRecoParticleName(inObj particle) {
-    int pdg_id = abs(particle.genPdgID);
-
-    if (pdg_id == 11) {
-        return TString("Electron");
-    } else if (pdg_id == 12) {
-        return TString("Neutrino (e)");
-    } else if (pdg_id == 13) {
-        return TString("Muon");
-    } else if (pdg_id == 14) {
-        return TString("Neutrino (m)");
-    } else if (pdg_id == 15) {
-        return TString("Tau");
-    } else if (pdg_id == 16) {
-        return TString("Neutrino (t)");
-    } else if (pdg_id == 21) {
-        return TString("Gluon");
-    } else if (pdg_id == 22) {
-        return TString("Photon");
-    } else if (pdg_id == 24) {
-        return TString("W");
-    } else if (pdg_id == 1) {
-        return TString("d Quark");
-    } else if (pdg_id == 2) {
-        return TString("u Quark");
-    } else if (pdg_id == 3) {
-        return TString("s Quark");
-    } else if (pdg_id == 4) {
-        return TString("c Quark");
-    } else if (pdg_id == 5) {
-        return TString("b Quark");
-    } else if (pdg_id == 6) {
-        return TString("t Quark");
-    } else if (pdg_id == 111) {
-        return TString("Pi0 Meson");
-    } else if (pdg_id == 211) {
-        return TString("Pi+ Meson");
-    } else if (pdg_id == 310) {
-        return TString("K0_S Meson");
-    } else if (pdg_id == 413) {
-        return TString("D*(2010)+ Meson");
-    } else if (pdg_id == 421) {
-        return TString("D0 Meson");
-    } else if (pdg_id == 423) {
-        return TString("D*(2007)0 Meson");
-    } else if (pdg_id == 511) {
-        return TString("B0 Meson");
-    } else if (pdg_id == 523) {
-        return TString("B+ Meson");
-    } else if (pdg_id == 2212) {
-        return TString("Proton");
-    } else {
-        return TString(std::to_string(pdg_id));
-    }
-}
-*/
 vector<ttH::GenParticle> getParticlesByID(int id,vector<ttH::GenParticle> gen_particles) {
     vector<ttH::GenParticle> particles;
     for (auto &gen_particle: gen_particles) {
@@ -325,37 +226,6 @@ template <typename inObj> void readCollectionInfo(vector<inObj> collection, int 
         cout << indent << "\tGMother:  " << getParticleName(particle.genGrandMotherPdgID) << endl;
     }
 }
-
-/*
-vector<ttH::GenParticle> getBJets(vector<ttH::GenParticle> gen_particles, vector<ttH::GenParticle> gen_jets) {
-    double deltaR_cut = 0.4;
-    vector<ttH::GenParticle> b_jets;
-    for (auto &gen_jet: gen_jets) {
-        int index = 0;
-        for (auto &gen_particle: gen_particles) {
-            double delta_r = getDeltaR(gen_jet,gen_particle);
-            if (delta_r > deltaR_cut || delta_r < 0) {
-                index += 1;
-                continue;
-            }
-
-            //if (!gen_particle.isPromptFinalState) {
-            //    index += 1;
-            //    continue;
-            //}
-
-            if (fabs(gen_particle.pdgID) == 5) {
-                //readParticleInfo(gen_particle,index,1);
-                //cout << "\t\tDeltaR: " << delta_r << endl;
-                b_jets.push_back(gen_jet);
-                break;
-            }
-            index += 1;
-        }
-    }
-    return b_jets;
-}
-*/
 
 // Returns b-jets matched to their gen_particle counterparts
 template <typename T> vector<T> getBJets(vector<ttH::GenParticle> gen_particles, vector<T> jets) {
