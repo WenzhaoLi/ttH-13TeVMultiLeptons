@@ -30,7 +30,7 @@ EOF
    git clone -b multilep_m17 git@github.com:cms-ttH/ttH-LeptonID.git ttH/LeptonID
    git clone git@github.com:cms-ttH/ttH-13TeVMultiLeptons.git
    
-   sed -i 's|Math/include|Math/interface|' CommonTools/Utils/interface/normalizedPhi.h
+#   sed -i 's|Math/include|Math/interface|' CommonTools/Utils/interface/normalizedPhi.h
 
    curl --create-dirs -o LLR/NtupleProducer/plugins/MuonRefPruner.cc https://raw.githubusercontent.com/LLRCMS/LLRHiggsTauTau/6d4d486beb11efc85d4d3d4184c4e00e85c1261f/NtupleProducer/plugins/MuonRefPruner.cc
    cat <<EOB >LLR/NtupleProducer/plugins/BuildFile.xml
