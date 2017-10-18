@@ -13,8 +13,8 @@ EOF
    set -o xtrace
 
    export SCRAM_ARCH=slc6_amd64_gcc530
-   scramv1 project CMSSW CMSSW_8_0_26_patch1
-   cd CMSSW_8_0_26_patch1/src
+   scramv1 project CMSSW CMSSW_9_2_10
+   cd CMSSW_9_2_10/src
    set +o xtrace
    eval $(scramv1 runtime -sh)
    set -o xtrace
@@ -22,9 +22,9 @@ EOF
    git cms-addpkg CommonTools/Utils
    git cms-init > /dev/null
 
-   git cms-merge-topic cms-met:METRecipe_8020
-   git cms-merge-topic ikrav:egm_id_80X_v2
-   git cms-merge-topic gpetruc:badMuonFilters_80X_v2
+#   git cms-merge-topic cms-met:METRecipe_8020
+#   git cms-merge-topic ikrav:egm_id_80X_v2
+#   git cms-merge-topic gpetruc:badMuonFilters_80X_v2
 
    git clone -b multilep_m17 git@github.com:cms-ttH/MiniAOD.git
    git clone -b multilep_m17 git@github.com:cms-ttH/ttH-LeptonID.git ttH/LeptonID
